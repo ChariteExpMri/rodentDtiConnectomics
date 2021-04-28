@@ -1,13 +1,11 @@
 #!/bin/bash
 # connectome reconstruction
 # Script reconstructs connectome, does filtering, writes connectivity matrix
-# requires ANO.nii atlas and ANO.txt containing all structures and label IDs of the atlas
-
+# requires ANO_DTI.nii atlas and ANO_DTI.txt containing all structures and label IDs of the atlas
 
 for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/100m.tck -seed_dynamic IN/mrtrix/wm.mif -select 100M -maxlength 30 -cutoff 0.06
 
 for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/100k.tck -seed_dynamic IN/mrtrix/wm.mif -select 100K -maxlength 30 -cutoff 0.06
-
 
 # cutoff optimisation, define CCROI (corpus callosum)
 #for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/5K_cutoff_XX.tck -seed_image IN/mrtrix/CCROI.mif -select 5K -maxlength 30 -cutoff XX
@@ -15,19 +13,16 @@ for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/100k.tck -seed_dynamic IN/mrtrix/
 # maxlength optimisation, define CCROI (corpus callosum)
 #for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/5K_maxlength_XX.tck -seed_image IN/mrtrix/CCROI.mif -select 5K -maxlength XX -cutoff OPTIMIZEDVALUE
 
-
 # debugging with 10000 seeds
 #for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/10M.tck -seed_dynamic IN/mrtrix/wm.mif -select 10000 -maxlength 250 -cutoff 0.06
-
 
 
 # sift_2
 for_each * : tcksift2 IN/mrtrix/100m.tck IN/mrtrix/wm.mif IN/mrtrix/tck_weights.txt -out_mu IN/mrtrix/SIFT2_mu.txt -out_coeffs IN/mrtrix/tck_coeffs.txt
 
 # upscale atlas and convert to mif with ascending label ids, probably not needed if original atlas has no missing values in between, check later
-#for_each * : mrresize IN/rc_ix_ANO.nii -vox 0.1 -interp  IN/mrtrix/ANO_up.mif
-for_each * : cp IN/ANO_DTI.txt IN/mrtrix/atlas_lut.txt
-for_each * : labelconvert IN/ANO_DTI.nii IN/ANO_DTI.txt IN/mrtrix/atlas_lut.txt IN/mrtrix/atlas.mif
+for_each * : mrgrid IN/ANO_DTI.nii regrid -vox 0.1 -interp nearest IN/mrtrix/ANO_DTI_up.mif
+for_each * : labelconvert IN/mrtrix/ANO_DTI_up.mif IN/ANO_DTI.txt IN/atlas_lut.txt IN/mrtrix/atlas.mif
 
 # inpect AAL brain pacellations
 #mrview ../t1.nii.gz -plane 2 \ -overlay.load parc_aal.mif -overlay.opacity 0.2 -overlay.colourmap 3 -overlay.interpolation 0 &

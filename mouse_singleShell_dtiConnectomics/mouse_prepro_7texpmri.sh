@@ -2,8 +2,8 @@
 # Display start time
 echo "start:"
 date
-#preprocess
-# following files from ANTX2 preprocessing are needed: dwi.nii, rc_ix_AVGTmask.nii, rc_mt2.nii 
+# preprocessing
+# following files from ANTX2 preprocessing are needed: dwi.nii, rc_ix_AVGTmask.nii, rc_mt2.nii
 #if you have multishell:
 #mrcat b1000_AP/ b2000_AP/ b3000_AP/ dwi.mif
 for_each * : mkdir IN/mrtrix
