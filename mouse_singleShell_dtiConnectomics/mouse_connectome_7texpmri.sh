@@ -20,9 +20,8 @@ for_each * : tckgen IN/mrtrix/wm.mif IN/mrtrix/100k.tck -seed_dynamic IN/mrtrix/
 # sift_2
 for_each * : tcksift2 IN/mrtrix/100m.tck IN/mrtrix/wm.mif IN/mrtrix/tck_weights.txt -out_mu IN/mrtrix/SIFT2_mu.txt -out_coeffs IN/mrtrix/tck_coeffs.txt
 
-# upscale atlas and convert to mif with ascending label ids, probably not needed if original atlas has no missing values in between, check later
-for_each * : mrgrid IN/ANO_DTI.nii regrid -vox 0.1 -interp nearest IN/mrtrix/ANO_DTI_up.mif
-for_each * : labelconvert IN/mrtrix/ANO_DTI_up.mif IN/ANO_DTI.txt IN/atlas_lut.txt IN/mrtrix/atlas.mif
+for_each * : cp IN/ANO_DTI.txt IN/mrtrix/atlas_lut.txt
+for_each * : labelconvert IN/ANO_DTI.nii IN/ANO_DTI.txt IN/mrtrix/atlas_lut.txt IN/mrtrix/atlas.mif
 
 # inpect AAL brain pacellations
 #mrview ../t1.nii.gz -plane 2 \ -overlay.load parc_aal.mif -overlay.opacity 0.2 -overlay.colourmap 3 -overlay.interpolation 0 &
