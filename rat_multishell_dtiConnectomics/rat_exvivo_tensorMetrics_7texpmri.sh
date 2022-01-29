@@ -15,4 +15,3 @@ for_each * : mrconvert IN/mrtrix/adc.mif IN/adc.nii
 for_each * : mrconvert IN/mrtrix/fa.mif IN/fa.nii
 for_each * : mrconvert IN/mrtrix/ad.mif IN/ad.nii
 for_each * : mrconvert IN/mrtrix/rd.mif IN/rd.nii
-

@@ -40,13 +40,32 @@ for_each * : mrdegibbs IN/mrtrix/dwi_den.mif IN/mrtrix/dwi_den_unr.mif -axes 0,1
 #mrcat mean_b0_AP.mif mean_b0_PA.mif –axis 3 b0_pair.mif
 #if no b0_PA/, don't need to do these steps
 
+# =get VOXEL-size & inflate by factor 10 =========================
+cd $(ls -d */|head -n 1)
+dim1=$(fslinfo dwi_b100.nii | grep -m 1 pixdim1 | awk '{print $2}');
+dim2=$(fslinfo dwi_b100.nii | grep -m 1 pixdim2 | awk '{print $2}');
+dim3=$(fslinfo dwi_b100.nii | grep -m 1 pixdim3 | awk '{print $2}');
+echo '['$dim1','$dim2','$dim3']'
+cd ..
+
+fac=10
+echo blow up voxelsize by factor: $fac
+
+dim1fac=$(echo $dim1*$fac | bc)
+dim2fac=$(echo $dim2*$fac | bc) 
+dim3fac=$(echo $dim3*$fac | bc)
+echo '['$dim1fac','$dim2fac','$dim3fac']'
 
 #motion and distortion correction, scale to human length scales for FSL commands and then back to original length scales
-for_each * : mrconvert -vox 1.5,1.5,4 IN/mrtrix/dwi_den_unr.mif IN/mrtrix/dwi_den_unr_vox.mif
+for_each * : mrconvert -vox $dim1fac,$dim2fac,$dim3fac IN/mrtrix/dwi_den_unr.mif IN/mrtrix/dwi_den_unr_vox.mif
 ### test whether no -eddy_options gives an error message
 for_each * : dwifslpreproc IN/mrtrix/dwi_den_unr_vox.mif IN/mrtrix/dwi_den_unr_pre_vox.mif -rpe_none -pe_dir AP -eddy_options " --slm=linear --data_is_shelled"
 ###
-for_each * : mrconvert -vox 0.15,0.15,0.4 IN/mrtrix/dwi_den_unr_pre_vox.mif IN/mrtrix/dwi_den_unr_pre.mif
+for_each * : mrconvert -vox $dim1,$dim2,$dim3 IN/mrtrix/dwi_den_unr_pre_vox.mif IN/mrtrix/dwi_den_unr_pre.mif
+
+# =========================
+#if [ 1 -eq 0 ]; then
+# =========================
 
 # remove negative values from dwi dataset since this leads to problems in ants N4 bias field correction
 for_each * : mrthreshold -abs 0 IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/maskprepos.mif
@@ -122,4 +141,6 @@ for_each * : mrcalc IN/mrtrix/c_t2_up.mif IN/mrtrix/maskantx_up_smooth_thresh_er
 #Generate atlas and eroded brain mask excluding csf.
 # 
 
-
+# =========================
+#fi
+# =========================

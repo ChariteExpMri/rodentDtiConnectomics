@@ -2,16 +2,14 @@
 # Display start time
 echo "start:"
 date
-# preprocessing
-# following files from ANTX2 preprocessing are needed: dwi.nii, rc_ix_AVGTmask.nii, rc_mt2.nii
-#if you have multishell:
-#mrcat b1000_AP/ b2000_AP/ b3000_AP/ dwi.mif
+
+
+#preprocess
+# following files from ANTX2 preprocessing are needed: dwi.nii, rc_ix_AVGTmask.nii, rc_mt2.nii 
 for_each * : mkdir IN/mrtrix
 
 # For a standard Bruker DTI scan, bx and by directions as stored in the method file are opposing the mrtrix x and y directions, so bx and by need a flip (minus sign)
 for_each * : mrconvert -grad IN/grad.txt IN/dwi.nii IN/mrtrix/dwi.mif
-
-# Get voxel dimensions for scaling later on
 
 # Denoising
 for_each * : dwidenoise IN/mrtrix/dwi.mif IN/mrtrix/dwi_den.mif -noise IN/mrtrix/noise.mif
@@ -37,10 +35,33 @@ for_each * : mrdegibbs IN/mrtrix/dwi_den.mif IN/mrtrix/dwi_den_unr.mif -axes 0,1
 
 
 #motion and distortion correction, scale to human length scales for FSL commands and then back to original length scales
-for_each * : mrconvert -vox 1.2,1.2,4 IN/mrtrix/dwi_den_unr.mif IN/mrtrix/dwi_den_unr_vox.mif
-for_each * : dwifslpreproc IN/mrtrix/dwi_den_unr_vox.mif IN/mrtrix/dwi_den_unr_pre_vox.mif -rpe_none -pe_dir AP -eddy_options " --slm=linear"
-for_each * : mrconvert -vox 0.12,0.12,0.4 IN/mrtrix/dwi_den_unr_pre_vox.mif IN/mrtrix/dwi_den_unr_pre.mif
+#for_each * : mrconvert -vox 1.2,1.2,4 IN/mrtrix/dwi_den_unr.mif IN/mrtrix/dwi_den_unr_vox.mif
+#for_each * : dwifslpreproc IN/mrtrix/dwi_den_unr_vox.mif IN/mrtrix/dwi_den_unr_pre_vox.mif -rpe_none -pe_dir AP -eddy_options " --slm=linear"
+#for_each * : mrconvert -vox 0.12,0.12,0.4 IN/mrtrix/dwi_den_unr_pre_vox.mif IN/mrtrix/dwi_den_unr_pre.mif
 
+# =get VOXEL-size & inflate by factor 10 =========================
+cd $(ls -d */|head -n 1)
+dim1=$(fslinfo dwi.nii | grep -m 1 pixdim1 | awk '{print $2}');
+dim2=$(fslinfo dwi.nii | grep -m 1 pixdim2 | awk '{print $2}');
+dim3=$(fslinfo dwi.nii | grep -m 1 pixdim3 | awk '{print $2}');
+echo '['$dim1','$dim2','$dim3']'
+cd ..
+
+fac=10
+echo blow up voxelsize by factor: $fac
+
+dim1fac=$(echo $dim1*$fac | bc)
+dim2fac=$(echo $dim2*$fac | bc) 
+dim3fac=$(echo $dim3*$fac | bc)
+echo '['$dim1fac','$dim2fac','$dim3fac']'
+
+for_each * : mrconvert -vox $dim1fac,$dim2fac,$dim3fac IN/mrtrix/dwi_den_unr.mif IN/mrtrix/dwi_den_unr_vox.mif
+for_each * : dwifslpreproc IN/mrtrix/dwi_den_unr_vox.mif IN/mrtrix/dwi_den_unr_pre_vox.mif -rpe_none -pe_dir AP -eddy_options " --slm=linear"
+for_each * : mrconvert -vox $dim1,$dim2,$dim3 IN/mrtrix/dwi_den_unr_pre_vox.mif IN/mrtrix/dwi_den_unr_pre.mif
+
+# =========================
+#if [ 1 -eq 0 ]; then
+# =========================
 # remove negative values from dwi dataset since this leads to problems in ants N4 bias field correction
 for_each * : mrthreshold -abs 0 IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/maskprepos.mif
 for_each * : mrcalc IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/maskprepos.mif -multiply IN/mrtrix/dwi_den_unr_pre_pos.mif
@@ -56,22 +77,26 @@ for_each * : mrcalc IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/maskprepos.mif -mult
 #cd ..
 #Bias field correction
 # Use rc_mt2.nii/rc_t2.nii which are the SPM biasfield-corrected/uncorrected t2 coregistered to dwi, requires preprocessing in ANTx2 toolbox https://github.com/ChariteExpMri/antx2
+
+
 for_each * : mrconvert IN/rc_mt2.nii IN/mrtrix/rc_mt2corruptheader.mif
-for_each * : mrtransform IN/mrtrix/rc_mt2corruptheader.mif -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/rc_mt2.mif
+for_each * : mrtransform IN/mrtrix/rc_mt2corruptheader.mif -reorient_fod no -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/rc_mt2.mif
 for_each * : mrconvert IN/rc_t2.nii IN/mrtrix/rc_t2corruptheader.mif
-for_each * : mrtransform IN/mrtrix/rc_t2corruptheader.mif -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/rc_t2.mif
+for_each * : mrtransform IN/mrtrix/rc_t2corruptheader.mif -reorient_fod no -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/rc_t2.mif
 for_each * : mrcalc IN/mrtrix/rc_mt2.mif IN/mrtrix/rc_t2.mif -divide IN/mrtrix/biasantx.mif
 # do the bias field correction using the antx t2 biasfield
 for_each * : mrcalc IN/mrtrix/dwi_den_unr_pre_pos.mif IN/mrtrix/biasantx.mif -multiply IN/mrtrix/dwi_den_unr_pre_pos_unbiasantxcorruptheader.mif
 
-for_each * : mrtransform IN/mrtrix/dwi_den_unr_pre_pos_unbiasantxcorruptheader.mif -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx.mif
+for_each * : mrtransform IN/mrtrix/dwi_den_unr_pre_pos_unbiasantxcorruptheader.mif -reorient_fod no -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx.mif
+
 
 # generate brain mask output from antx2 in mif format and fix header
-for_each * : mrconvert IN/rc_ix_AVGTmask.nii IN/mrtrix/maskantxcorruptheader.mif
-for_each * : mrtransform IN/mrtrix/maskantxcorruptheader.mif -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/maskantx.mif
+for_each * : mrconvert -force IN/rc_ix_AVGTmask.nii IN/mrtrix/maskantxcorruptheader.mif
+
+for_each * : mrtransform IN/mrtrix/maskantxcorruptheader.mif -force -reorient_fod no -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/maskantx.mif
 
 # Ants biasfieldcorrection. Use ants.b parameter to compensate differences in brain size from human (standard is -ants.b [100,3]) to mouse
-for_each * : dwibiascorrect ants -ants.b "[10,3]" -mask IN/mrtrix/maskantx.mif IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx.mif IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx_unbias.mif -bias IN/mrtrix/bias.mif
+for_each * : dwibiascorrect ants -force -ants.b "[10,3]" -mask IN/mrtrix/maskantx.mif IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx.mif IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx_unbias.mif -bias IN/mrtrix/bias.mif
 
 # Generate overall biasfield
 for_each * : mrcalc IN/mrtrix/bias.mif IN/mrtrix/biasantx.mif -divide IN/mrtrix/biasoverall.mif
@@ -97,8 +122,11 @@ for_each * : dwi2fod msmt_csd IN/mrtrix/dwi_den_unr_pre_pos_unbiasantx_unbias_up
 
 # Generate brain-masked, upsampled c_t2.mif for illustration purposes, make sure that c_t2 exists and is correct (moving image, not target image when configuring coreg in antx2)
 for_each * : mrconvert IN/c_t2.nii IN/mrtrix/c_t2corruptheader.mif
-for_each * : mrtransform IN/mrtrix/c_t2corruptheader.mif -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/c_t2.mif
+for_each * : mrtransform IN/mrtrix/c_t2corruptheader.mif -reorient_fod no -replace IN/mrtrix/dwi_den_unr_pre.mif IN/mrtrix/c_t2.mif
 for_each * : mrgrid IN/mrtrix/c_t2.mif regrid -vox 0.1 IN/mrtrix/c_t2_up.mif
 for_each * : mrgrid IN/mrtrix/biasantx.mif regrid -vox 0.1 -interp nearest IN/mrtrix/biasantx_up.mif
 for_each * : mrcalc IN/mrtrix/c_t2_up.mif IN/mrtrix/biasantx_up.mif -multiply IN/mrtrix/c_t2_up_unbias.mif
 for_each * : mrcalc IN/mrtrix/c_t2_up.mif IN/mrtrix/maskantx_up_smooth_thresh_erode.mif -multiply IN/mrtrix/c_t2_up_unbias_masked.mif
+# =========================
+#fi
+# =========================
