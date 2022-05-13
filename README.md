@@ -28,7 +28,7 @@ For Preprocessing step
 - grad.txt (grad_xx.txt; diffusion-weighted gradient scheme in MRtrix format)
 - dwi.nii (dwi_xx.nii)
 - rc_mt2.nii / rc_t2.nii (SPM biasfield-corrected/uncorrected t2 coregistered to dwi)
-- rc_ix_AVGTmask.nii (
+- rc_ix_AVGTmask.nii (mask image)
 - c_t2.nii
 requires preprocessing in ANTx2 toolbox https://github.com/ChariteExpMri/antx2
 
